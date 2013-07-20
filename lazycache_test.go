@@ -2,6 +2,7 @@ package lazycache
 
 import (
   "time"
+  "errors"
   "testing"
 )
 
@@ -81,7 +82,7 @@ func TestFetchesErrorsSynchronouslyAfterExpire(t *testing.T) {
   }
 }
 
-func TestReturnsOldValuesWhenGettingErrors(t *testing.T) {
+func TestFetchingNilErasesExistingValue(t *testing.T) {
   count := 0
   cache := New(nilFetcher(&count), time.Microsecond, 1)
   cache.items["Hi"] = &Item{object: 99, expires: time.Now(),}
@@ -93,45 +94,49 @@ func TestReturnsOldValuesWhenGettingErrors(t *testing.T) {
   }
   time.Sleep(2 * time.Microsecond)
 
-  v2, _ := cache.Get("Hi")
+  v2, ok := cache.Get("Hi")
 
-  if v2.(int) != 99 {
-    t.Errorf("expected %+v to equal 99", v2.(int))
+  if ok != false && v2 != nil {
+    t.Errorf("expected value to be removed from the cache")
   }
 }
 
-func TestLol(t *testing.T){
-  fetcher := func (id string) (interface{}) {
-    return id == "foo"
+func TestErrorOnFetchKeepsOldValue(t *testing.T) {
+  count := 0
+  cache := New(errorFetcher(&count), time.Microsecond, 1)
+  cache.items["paul"] = &Item{object: 99, expires: time.Now().Add(-time.Hour),}
+
+  v1, _ := cache.Get("paul")
+
+  if v1.(int) != 99 {
+    t.Errorf("expected %+v to equal 99", v1.(int))
   }
-
-  cache := New(fetcher, 60 * time.Second, 256) // Prealocates 256 items. Items are expired after 60s.
-
-  foo_value, foo_found := cache.Get("foo")
-  print(foo_found)
-  print(foo_value.(bool))
-  bar_value, bar_found := cache.Get("Bar")
-  print(bar_found)
-  print(bar_value.(bool))
-  t.Errorf("expected")
 }
 
 func countFetcher(count *int) Fetcher {
-  return func (id string) (interface{}) {
+  return func (id string) (interface{}, error) {
     *count += 1
-    return *count
+    return *count, nil
   }
 }
+
 func nilFetcher(count *int) Fetcher {
-  return func (id string) (interface{}) {
+  return func (id string) (interface{}, error) {
     *count += 1
-    return nil
+    return nil, nil
   }
 }
+
 func slowNilFetcher(count *int) Fetcher {
-  return func (id string) (interface{}) {
+  return func (id string) (interface{}, error) {
     time.Sleep(10 * time.Microsecond)
     *count += 1
-    return nil
+    return nil, nil
+  }
+}
+
+func errorFetcher(count *int) Fetcher {
+  return func (id string) (interface{}, error) {
+    return nil, errors.New("oops")
   }
 }

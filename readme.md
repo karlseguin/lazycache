@@ -7,8 +7,8 @@ Should fetching an item return an error, an existing value will remain, even if 
 
 ### Example
 
-    fetcher := func (id string) (interface{}) {
-      return id == "foo"
+    fetcher := func (id string) (interface{}, error) {
+      return id == "foo", nil
     }
 
     // Prealocates 256 items. Items are expired after 2 minutes

@@ -7,7 +7,7 @@ import (
   "time"
 )
 
-type Fetcher func(id string) (interface{})
+type Fetcher func(id string) (interface{}, error)
 
 type Item struct {
   object interface{}
@@ -47,16 +47,20 @@ func (cache *LazyCache) Get(id string) (interface{}, bool) {
 }
 
 func (cache *LazyCache) Fetch(id string, current *Item) (interface{}, bool) {
-  object := cache.fetcher(id)
-  if object != nil || current == nil {
-    cache.lock.Lock()
-    if current != nil {
+  object, err := cache.fetcher(id)
+  if err != nil { return nil, false }
+  
+  cache.lock.Lock()
+  defer cache.lock.Unlock()
+  if current != nil {
+    if object == nil {
+      delete(cache.items, id)
+    } else {
       current.expires = time.Now().Add(cache.ttl)
       current.object = object
-    } else {
-      cache.items[id] = &Item{expires: time.Now().Add(cache.ttl), object: object}
     }
-    cache.lock.Unlock()
+  } else {
+    cache.items[id] = &Item{expires: time.Now().Add(cache.ttl), object: object}
   }
   return object, object != nil
 }
