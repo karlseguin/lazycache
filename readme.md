@@ -1,12 +1,9 @@
 ### A Lazy Cache storage for Go
+Lazy cache is a key-value storage that favors returning stale data rather than blocking a caller. A cached item will always be returned, no matter how stale it is. However, expired items will be reloaded in a separate goroutine.
 
-Lazy cache is a thread-safe key-value storage that fetches the new values asynchronously when possible.
+The only time the cache will block is when the key is unknown.
 
-* When the cache doesn't have any value for a given key, it will fetch synchronously and return the new value.
-* When the cache have a value for a key and it's still valid, it will return it.
-* When the cache have a value for a key and it's outdated, it will return it and fetch the new one on the background.
-
-It also handles errors. When the fetcher function returns `nil`, it will save it on the cache, but will never return a stale version.
+Should fetching an item return an error, an existing value will remain, even if stale.
 
 ### Example
 
@@ -14,7 +11,8 @@ It also handles errors. When the fetcher function returns `nil`, it will save it
       return id == "foo"
     }
 
-    cache := New(fetcher, 60 * time.Second, 256) // Prealocates 256 items. Items are expired after 60s.
+    // Prealocates 256 items. Items are expired after 60 seconds
+    cache := New(fetcher, 60 * time.Second, 256) 
 
     foo_value, foo_found := cache.Get('foo')
     bar_value, bar_found := cache.Get('bar')

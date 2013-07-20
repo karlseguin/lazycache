@@ -1,4 +1,6 @@
 package lazycache
+// A generic cache that favors returning stale data
+// than blocking a caller
 
 import (
   "sync"
@@ -15,7 +17,7 @@ type Item struct {
 type LazyCache struct {
   fetcher Fetcher
   ttl time.Duration
-  lock *sync.RWMutex
+  lock sync.RWMutex
   items map[string]*Item
 }
 
@@ -23,7 +25,6 @@ func New(fetcher Fetcher, ttl time.Duration, size int) *LazyCache {
   return &LazyCache{
     ttl: ttl,
     fetcher: fetcher,
-    lock: new(sync.RWMutex),
     items: make(map[string]*Item, size),
   }
 }
@@ -53,10 +54,9 @@ func (cache *LazyCache) Fetch(id string, current *Item) (interface{}, bool) {
       current.expires = time.Now().Add(cache.ttl)
       current.object = object
     } else {
-      cache.items[id] = &Item{ expires: time.Now().Add(cache.ttl), object: object}
+      cache.items[id] = &Item{expires: time.Now().Add(cache.ttl), object: object}
     }
     cache.lock.Unlock()
   }
   return object, object != nil
 }
-
