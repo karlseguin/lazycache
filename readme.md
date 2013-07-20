@@ -11,8 +11,8 @@ Should fetching an item return an error, an existing value will remain, even if 
       return id == "foo"
     }
 
-    // Prealocates 256 items. Items are expired after 60 seconds
-    cache := New(fetcher, 60 * time.Second, 256) 
+    // Prealocates 256 items. Items are expired after 2 minutes
+    cache := New(fetcher, time.Minute * 2, 256) 
 
     foo_value, foo_found := cache.Get('foo')
     bar_value, bar_found := cache.Get('bar')
