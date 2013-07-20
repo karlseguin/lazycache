@@ -57,6 +57,7 @@ func (cache *LazyCache) Fetch(id string, current *Item) (interface{}, bool) {
   if err != nil { return nil, false }
   
   if current == nil {
+    if object == nil { return nil, false }
     cache.Set(id, object)
     return object, true
   }
