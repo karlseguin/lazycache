@@ -82,22 +82,30 @@ func TestFetchesErrorsSynchronouslyAfterExpire(t *testing.T) {
   }
 }
 
+func TestFirstFetchOfNilSavesTheObject(t *testing.T) {
+  count := 0
+  cache := New(nilFetcher(&count), time.Minute, 1)
+  obj, exists := cache.Get("Hi") // flush it
+  if exists {
+    t.Errorf("item should not exist")
+  }
+  if obj != nil {
+    t.Errorf("item should be nil")
+  }
+}
+
 func TestFetchingNilErasesExistingValue(t *testing.T) {
   count := 0
-  cache := New(nilFetcher(&count), time.Microsecond, 1)
-  cache.items["Hi"] = &Item{object: 99, expires: time.Now(),}
-
-  v1, _ := cache.Get("Hi")
-
-  if v1.(int) != 99 {
-    t.Errorf("expected %+v to equal 99", v1.(int))
-  }
+  cache := New(nilFetcher(&count), time.Minute, 1)
+  cache.items["Hi"] = &Item{object: 99, expires: time.Now().Add(-time.Minute),}
+  cache.Get("Hi") // flush it
   time.Sleep(2 * time.Microsecond)
-
-  v2, ok := cache.Get("Hi")
-
-  if ok != false && v2 != nil {
-    t.Errorf("expected value to be removed from the cache")
+  obj, exists := cache.Get("Hi")
+  if exists {
+    t.Errorf("item should not exist")
+  }
+  if obj != nil {
+    t.Errorf("item should be nil")
   }
 }
 
@@ -105,9 +113,7 @@ func TestErrorOnFetchKeepsOldValue(t *testing.T) {
   count := 0
   cache := New(errorFetcher(&count), time.Microsecond, 1)
   cache.items["paul"] = &Item{object: 99, expires: time.Now().Add(-time.Hour),}
-
   v1, _ := cache.Get("paul")
-
   if v1.(int) != 99 {
     t.Errorf("expected %+v to equal 99", v1.(int))
   }
