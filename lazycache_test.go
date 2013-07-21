@@ -62,26 +62,6 @@ func TestDoesNotFetchErrorsUntilExpire(t *testing.T) {
   }
 }
 
-func TestFetchesErrorsSynchronouslyAfterExpire(t *testing.T) {
-  count := 0
-  cache := New(slowNilFetcher(&count), time.Microsecond, 1)
-
-  cache.Get("Hi")
-  time.Sleep(2 * time.Microsecond)
-  cache.Get("Hi")
-
-  if count != 2 {
-    t.Errorf("expected %+v to equal 2", count)
-  }
-
-  time.Sleep(2 * time.Microsecond)
-  cache.Get("Hi")
-
-  if count != 3 {
-    t.Errorf("expected %+v to equal 3", count)
-  }
-}
-
 func TestFirstFetchOfNilSavesTheObject(t *testing.T) {
   count := 0
   cache := New(nilFetcher(&count), time.Minute, 1)

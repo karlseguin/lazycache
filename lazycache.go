@@ -37,11 +37,7 @@ func (cache *LazyCache) Get(id string) (interface{}, bool) {
     return cache.Fetch(id, item)
   }
   if time.Now().After(item.expires) {
-    if item.object == nil {
-      return cache.Fetch(id, item)
-    } else {
-      go cache.Fetch(id, item)
-    }
+    go cache.Fetch(id, item)
   }
   return item.object, item.object != nil
 }
@@ -61,8 +57,8 @@ func (cache *LazyCache) Fetch(id string, current *Item) (interface{}, bool) {
     return object, object != nil
   }
   cache.lock.Lock()
-  defer cache.lock.Unlock()
   current.expires = time.Now().Add(cache.ttl)
   current.object = object
+  cache.lock.Unlock()
   return object, object != nil
 }
