@@ -34,10 +34,10 @@ func (cache *LazyCache) Get(id string) (interface{}, bool) {
   item, exists := cache.items[id]
   cache.lock.RUnlock()
   if exists == false {
-    return cache.Fetch(id, item)
+    return cache.Fetch(id)
   }
   if time.Now().After(item.expires) {
-    go cache.Fetch(id, item)
+    go cache.Fetch(id)
   }
   return item.object, item.object != nil
 }
@@ -45,20 +45,18 @@ func (cache *LazyCache) Get(id string) (interface{}, bool) {
 func (cache *LazyCache) Set(id string, object interface{}) {
   cache.lock.Lock()
   defer cache.lock.Unlock()
-  cache.items[id] = &Item{expires: time.Now().Add(cache.ttl), object: object}
+  current, exists := cache.items[id]
+  if exists {
+    current.expires = time.Now().Add(cache.ttl)
+    current.object = object
+  } else {
+    cache.items[id] = &Item{expires: time.Now().Add(cache.ttl), object: object}
+  }
 }
 
-func (cache *LazyCache) Fetch(id string, current *Item) (interface{}, bool) {
+func (cache *LazyCache) Fetch(id string) (interface{}, bool) {
   object, err := cache.fetcher(id)
   if err != nil { return nil, false }
-  
-  if current == nil {
-    cache.Set(id, object)
-    return object, object != nil
-  }
-  cache.lock.Lock()
-  current.expires = time.Now().Add(cache.ttl)
-  current.object = object
-  cache.lock.Unlock()
+  cache.Set(id, object)
   return object, object != nil
 }
