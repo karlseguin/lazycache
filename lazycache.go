@@ -6,7 +6,7 @@ import (
 )
 
 type Fetcher func(key string) (interface{}, error)
-type Loader func() []interface{}
+type Loader func() (map[string]interface{}, error)
 
 type LazyCache struct {
 	sync.RWMutex
@@ -17,12 +17,14 @@ type LazyCache struct {
 }
 
 func New(fetcher Fetcher, loader Loader, ttl time.Duration) *LazyCache {
-	return &LazyCache{
+	cache := &LazyCache{
 		ttl:     ttl,
 		loader:  loader,
 		fetcher: fetcher,
 		items:   make(map[string]interface{}),
 	}
+	go cache.reloader()
+	return cache
 }
 
 func (c *LazyCache) Get(key string) (interface{}, error) {
@@ -39,6 +41,23 @@ func (c *LazyCache) Set(key string, item interface{}) {
 	c.Lock()
 	defer c.Unlock()
 	c.items[key] = item
+}
+
+func (c *LazyCache) Reload() {
+	items, err := c.loader()
+	if err != nil {
+		return
+	}
+	c.Lock()
+	c.items = items
+	c.Unlock()
+}
+
+func (c *LazyCache) reloader() {
+	for {
+		time.Sleep(c.ttl)
+		c.Reload()
+	}
 }
 
 func (c *LazyCache) fetch(key string) (interface{}, error) {

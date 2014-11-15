@@ -12,25 +12,26 @@ func fetch(id string) (interface{}, error) {
   var name string
   row := db.QueryRow("selectname from accounts where id = ?", id)
   if err := row.Scan(&name); err != nil {
+    // err will get returned by the call to Get which caused
+    // this fetch
     return nil, err
   }
   return &Account{id, name}
 }
 
-func reload() []interface{} {
+func reload() (map[string]interface{}, error) {
   rows, err := db.Query("select id, name from accounts")
   if err != nil {
     //todo: log
-    return nil
+    return nil, err
   }
-  accounts := make([]Account, 0, 10)
+  accounts := make(map[string]interface{})
   for rows.Next() {
-    var id int
-    var name string
+    var id, name string
     rows.Scan(&id, &name)
-    accounts = append(accounts, &Account{id, name})
+    accounts[id] = &Account{id, name}
   }
-  return accounts
+  return accounts, nil
 }
 
 cache := lazycache.New(fetch, reload, time.Minute * 2)
