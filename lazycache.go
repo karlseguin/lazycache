@@ -1,62 +1,51 @@
 package lazycache
-// A generic cache that favors returning stale data
-// than blocking a caller
 
 import (
-  "sync"
-  "time"
+	"sync"
+	"time"
 )
 
-type Fetcher func(id string) (interface{}, error)
-
-type Item struct {
-  object interface{}
-  expires time.Time
-}
+type Fetcher func(key string) (interface{}, error)
+type Loader func() []interface{}
 
 type LazyCache struct {
-  fetcher Fetcher
-  ttl time.Duration
-  lock sync.RWMutex
-  items map[string]*Item
+	sync.RWMutex
+	fetcher Fetcher
+	loader  Loader
+	ttl     time.Duration
+	items   map[string]interface{}
 }
 
-func New(fetcher Fetcher, ttl time.Duration, size int) *LazyCache {
-  return &LazyCache{
-    ttl: ttl,
-    fetcher: fetcher,
-    items: make(map[string]*Item, size),
-  }
+func New(fetcher Fetcher, loader Loader, ttl time.Duration) *LazyCache {
+	return &LazyCache{
+		ttl:     ttl,
+		loader:  loader,
+		fetcher: fetcher,
+		items:   make(map[string]interface{}),
+	}
 }
 
-func (cache *LazyCache) Get(id string) (interface{}, bool) {
-  cache.lock.RLock()
-  item, exists := cache.items[id]
-  cache.lock.RUnlock()
-  if exists == false {
-    return cache.Fetch(id)
-  }
-  if time.Now().After(item.expires) {
-    go cache.Fetch(id)
-  }
-  return item.object, item.object != nil
+func (c *LazyCache) Get(key string) (interface{}, error) {
+	c.RLock()
+	item, exists := c.items[key]
+	c.RUnlock()
+	if exists == false {
+		return c.fetch(key)
+	}
+	return item, nil
 }
 
-func (cache *LazyCache) Set(id string, object interface{}) {
-  cache.lock.Lock()
-  defer cache.lock.Unlock()
-  current, exists := cache.items[id]
-  if exists {
-    current.expires = time.Now().Add(cache.ttl)
-    current.object = object
-  } else {
-    cache.items[id] = &Item{expires: time.Now().Add(cache.ttl), object: object}
-  }
+func (c *LazyCache) Set(key string, item interface{}) {
+	c.Lock()
+	defer c.Unlock()
+	c.items[key] = item
 }
 
-func (cache *LazyCache) Fetch(id string) (interface{}, bool) {
-  object, err := cache.fetcher(id)
-  if err != nil { return nil, false }
-  cache.Set(id, object)
-  return object, object != nil
+func (c *LazyCache) fetch(key string) (interface{}, error) {
+	item, err := c.fetcher(key)
+	if err != nil {
+		return nil, err
+	}
+	c.Set(key, item)
+	return item, nil
 }

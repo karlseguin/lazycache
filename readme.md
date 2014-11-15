@@ -1,24 +1,41 @@
 ### A Lazy Cache storage for Go
-Lazy cache is a key-value storage that favors returning stale data rather than blocking a caller. A cached item will always be returned, no matter how stale it is. However, expired items will be reloaded in a separate goroutine.
 
-The only time the cache will block is when the key is unknown.
+`LazyCache` reloads all values on a given interval while lazilly loading new values on demand. Its simplicity is ideal for storing a small set of objects, where the cost of bulk-reloading is smaller than maintaining a more complex caching algorithm.
 
-Should fetching an item return an error, an existing value will remain, even if stale.
+`LazyCache` requires two key pieces: a `Fetcher` and a `Loader`. The `Fetcher` is used to get individually items. The Loader is used to bulk reload all values.
 
-### Example
+For example:
 
-    fetcher := func (id string) (interface{}, error) {
-      return id == "foo", nil
-    }
+```go
+func fetch(id string) (interface{}, error) {
+  account := new(Account)
+  var name string
+  row := db.QueryRow("selectname from accounts where id = ?", id)
+  if err := row.Scan(&name); err != nil {
+    return nil, err
+  }
+  return &Account{id, name}
+}
 
-    // Prealocates 256 items. Items are expired after 2 minutes
-    cache := New(fetcher, time.Minute * 2, 256) 
+func reload() []interface{} {
+  rows, err := db.Query("select id, name from accounts")
+  if err != nil {
+    //todo: log
+    return nil
+  }
+  accounts := make([]Account, 0, 10)
+  for rows.Next() {
+    var id int
+    var name string
+    rows.Scan(&id, &name)
+    accounts = append(accounts, &Account{id, name})
+  }
+  return accounts
+}
 
-    foo_value, foo_found := cache.Get('foo')
-    bar_value, bar_found := cache.Get('bar')
+cache := lazycache.New(fetch, reload, time.Minute * 2)
+```
 
+When you `Get` from the cache, `fetch` will be invoked to load the item. Every 2 minutes, `reload` will be invoked to update the cache. This hybrid approach means that you can keep data in memory without having to wait until the next reload to discover new items.
 
-### Installation
-Install using the "go get" command:
-
-    go get github.com/viki-org/lazycache
+See [ccache](https://github.com/karlseguin/ccache) for more typical and powerful LRU cache.
