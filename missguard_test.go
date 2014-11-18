@@ -1,6 +1,7 @@
 package lazycache
 
 import (
+	"fmt"
 	. "github.com/karlseguin/expect"
 	"testing"
 	"time"
@@ -27,10 +28,12 @@ func (_ *MissGuardTests) UsesFetcherIfGuardExpired() {
 
 func (_ *MissGuardTests) GuardsTheMiss() {
 	cf := NewCountFetcher()
-	m := NewMissGuard(cf.Fetch, 100, time.Minute)
+	m := NewMissGuard(cf.Fetch, 5, time.Minute)
 	Expect(m.Fetch("dune")).To.Equal(nil, nil)
 	Expect(m.Fetch("dune")).To.Equal(nil, nil)
 	Expect(cf.counts["dune"]).To.Equal(1)
+	fmt.Println(m.slots)
+	fmt.Println(m.lookup)
 }
 
 type CountFetcher struct {
