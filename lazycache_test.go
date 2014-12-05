@@ -24,6 +24,13 @@ func (_ LazyCacheTests) GetDoesAFetchOnMiss() {
 	Expect(cache.Get("spice")).To.Equal("fetch:spice", nil)
 }
 
+func (_ LazyCacheTests) ClearsTheCache() {
+	cache := New(cloneFetcher, nil, time.Minute)
+	cache.Set("spice", "ghanima")
+	cache.Clear()
+	Expect(cache.Get("spice")).To.Equal("fetch:spice", nil)
+}
+
 func (_ LazyCacheTests) ReloadsWithNewItems() {
 	cache := New(nil, loader(nil, "a", 1, "b", 2), time.Minute)
 	cache.Reload()

@@ -60,6 +60,13 @@ func (c *LazyCache) reloader() {
 	}
 }
 
+func (c *LazyCache) Clear() {
+	n := make(map[string]interface{})
+	c.Lock()
+	c.items = n
+	c.Unlock()
+}
+
 func (c *LazyCache) fetch(key string) (interface{}, error) {
 	item, err := c.fetcher(key)
 	if err != nil {
